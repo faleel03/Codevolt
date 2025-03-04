@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useauth';
 import { useBooking } from '../hooks/useBooking';
 import { useNotification } from '../hooks/useNotification';
@@ -16,7 +16,8 @@ import Notification from '../components/common/Notification';
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const location = useLocation();
+  const { user, logout } = useAuth();
   // Add sample stations directly in the component
   const [sampleStations] = useState([
     {
@@ -48,6 +49,76 @@ const Dashboard = () => {
       chargingTypes: ['L3'],
       distance: 3.7,
       rating: 4.8
+    },
+    {
+      id: 'station-4',
+      name: 'Northside Power Station',
+      address: '234 Energy Lane, North District',
+      availableSlots: 4,
+      totalSlots: 12,
+      chargingTypes: ['L2', 'L3'],
+      distance: 4.1,
+      rating: 4.3
+    },
+    {
+      id: 'station-5',
+      name: 'Southside Quick Charge',
+      address: '567 Battery Road, South End',
+      availableSlots: 2,
+      totalSlots: 5,
+      chargingTypes: ['L3'],
+      distance: 2.9,
+      rating: 4.6
+    },
+    {
+      id: 'station-6',
+      name: 'Central Mall Charging',
+      address: '890 Shopping Center Blvd',
+      availableSlots: 7,
+      totalSlots: 15,
+      chargingTypes: ['L2'],
+      distance: 1.8,
+      rating: 4.0
+    },
+    {
+      id: 'station-7',
+      name: 'Airport EV Station',
+      address: '123 Terminal Drive',
+      availableSlots: 6,
+      totalSlots: 20,
+      chargingTypes: ['L2', 'L3'],
+      distance: 8.5,
+      rating: 4.7
+    },
+    {
+      id: 'station-8',
+      name: 'Highway Rest Stop',
+      address: 'Interstate 95, Mile 42',
+      availableSlots: 3,
+      totalSlots: 8,
+      chargingTypes: ['L3'],
+      distance: 12.3,
+      rating: 4.4
+    },
+    {
+      id: 'station-9',
+      name: 'Tech Park Charging',
+      address: '456 Innovation Way',
+      availableSlots: 5,
+      totalSlots: 10,
+      chargingTypes: ['L2', 'L3'],
+      distance: 5.6,
+      rating: 4.9
+    },
+    {
+      id: 'station-10',
+      name: 'Riverside Chargers',
+      address: '789 Waterfront Drive',
+      availableSlots: 2,
+      totalSlots: 6,
+      chargingTypes: ['L2'],
+      distance: 3.2,
+      rating: 4.1
     }
   ]);
   const { stations, loading: stationsLoading } = useStations();
@@ -57,6 +128,23 @@ const Dashboard = () => {
   const [error, setError] = useState(null);
   const [upcomingReservation, setUpcomingReservation] = useState(null);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  
+  // Check for success message in location state
+  useEffect(() => {
+    if (location.state?.successMessage) {
+      setSuccessMessage(location.state.successMessage);
+      // Clear the location state
+      window.history.replaceState({}, document.title);
+      
+      // Auto-dismiss success message after 5 seconds
+      const timer = setTimeout(() => {
+        setSuccessMessage('');
+      }, 5000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [location]);
   
   // Mock vehicle state - in a real app, this would come from an API or IoT device
   const [vehicleState, setVehicleState] = useState({
@@ -173,6 +261,14 @@ const Dashboard = () => {
         />
       )}
       
+      {successMessage && (
+        <Notification 
+          type="success" 
+          message={successMessage} 
+          onClose={() => setSuccessMessage('')} 
+        />
+      )}
+      
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* First column - Booking status */}
         <div className="space-y-6">
@@ -282,7 +378,7 @@ const Dashboard = () => {
           
           {/* Quick Actions */}
           <Card title="Quick Actions">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
               <Button
                 variant="outline"
                 className="flex items-center justify-center gap-2"
@@ -314,6 +410,23 @@ const Dashboard = () => {
                 Profile
               </Button>
             </div>
+            
+            {/* Logout Button */}
+            <Button
+              variant="danger"
+              className="w-full flex items-center justify-center gap-2"
+              onClick={() => {
+                if (logout) {
+                  logout();
+                }
+                navigate('/login');
+              }}
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              Logout
+            </Button>
           </Card>
         </div>
       </div>

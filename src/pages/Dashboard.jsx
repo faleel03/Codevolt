@@ -1,0 +1,273 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
+import { useBooking } from '../hooks/useBooking';
+import { useNotification } from '../hooks/useNotification';
+import { useStations } from '../hooks/useStations';
+
+// Components
+import StationsList from '../components/dashboard/StationsList';
+import ReservationCard from '../components/dashboard/ReservationCard';
+import PriorityStatus from '../components/dashboard/PriorityStatus';
+import Card from '../components/common/Card';
+import Button from '../components/common/Button';
+import Loader from '../components/common/Loader';
+import Notification from '../components/common/Notification';
+
+const Dashboard = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { stations, loading: stationsLoading } = useStations();
+  const { userBookings, waitlistItems, fetchStations, getUserBookings, getUserWaitlist, loading: bookingLoading } = useBooking();
+  const { notifications, fetchNotifications, loading: notificationsLoading } = useNotification();
+  
+  const [error, setError] = useState(null);
+  const [upcomingReservation, setUpcomingReservation] = useState(null);
+  
+  // Mock vehicle state - in a real app, this would come from an API or IoT device
+  const [vehicleState, setVehicleState] = useState({
+    soc: 35, // Current battery level (%)
+    estimatedRange: 120, // km
+    batteryCapacity: 'L2'
+  });
+  
+  // Fetch data on component mount
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Fetch all necessary data
+        await Promise.all([
+          fetchStations(),
+          getUserBookings(),
+          getUserWaitlist(),
+          fetchNotifications()
+        ]);
+      } catch (err) {
+        setError('Failed to load dashboard data. Please try again.');
+        console.error('Dashboard data loading error:', err);
+      }
+    };
+    
+    fetchData();
+  }, [fetchStations, getUserBookings, getUserWaitlist, fetchNotifications]);
+  
+  // Find the next upcoming reservation
+  useEffect(() => {
+    if (!userBookings || userBookings.length === 0) {
+      setUpcomingReservation(null);
+      return;
+    }
+    
+    const now = new Date();
+    
+    // Filter and sort upcoming reservations
+    const upcoming = userBookings
+      .filter(booking => {
+        const bookingDate = new Date(booking.date);
+        const [bookingHours, bookingMinutes] = booking.startTime.split(':').map(Number);
+        bookingDate.setHours(bookingHours, bookingMinutes, 0, 0);
+        return bookingDate > now;
+      })
+      .sort((a, b) => {
+        const dateA = new Date(a.date);
+        const dateB = new Date(b.date);
+        const [hoursA, minutesA] = a.startTime.split(':').map(Number);
+        const [hoursB, minutesB] = b.startTime.split(':').map(Number);
+        
+        dateA.setHours(hoursA, minutesA, 0, 0);
+        dateB.setHours(hoursB, minutesB, 0, 0);
+        
+        return dateA - dateB;
+      });
+    
+    setUpcomingReservation(upcoming.length > 0 ? upcoming[0] : null);
+  }, [userBookings]);
+  
+  // Filter to get only nearby stations for the dashboard
+  const nearbyStations = stations.slice(0, 3); // Just for demo, in reality would filter by distance
+  
+  // Handle reservation cancellation
+  const handleCancelReservation = (reservationId) => {
+    setUpcomingReservation(null);
+  };
+  
+  // Loading state
+  const isLoading = stationsLoading || bookingLoading || notificationsLoading;
+  
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-full py-12">
+        <Loader size="lg" label="Loading dashboard..." />
+      </div>
+    );
+  }
+  
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Dashboard</h1>
+        <Button 
+          variant="primary"
+          onClick={() => navigate('/booking')}
+        >
+          Book a Slot
+        </Button>
+      </div>
+      
+      {error && (
+        <Notification 
+          type="error" 
+          message={error} 
+          onClose={() => setError(null)} 
+        />
+      )}
+      
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* First column - Booking status */}
+        <div className="space-y-6">
+          {/* Vehicle Status */}
+          <PriorityStatus 
+            user={user} 
+            vehicleState={vehicleState} 
+          />
+          
+          {/* Upcoming Reservation */}
+          {upcomingReservation ? (
+            <ReservationCard 
+              reservation={upcomingReservation} 
+              onCancel={handleCancelReservation} 
+            />
+          ) : (
+            <Card title="No Upcoming Reservations">
+              <div className="text-center py-6">
+                <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">No upcoming reservations</h3>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  You don't have any charging sessions scheduled.
+                </p>
+                <div className="mt-6">
+                  <Button
+                    variant="primary"
+                    onClick={() => navigate('/booking')}
+                  >
+                    Book a Charging Slot
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          )}
+          
+          {/* Waitlist Status */}
+          {waitlistItems && waitlistItems.length > 0 && (
+            <Card title="Your Waitlist Status">
+              <div className="space-y-3">
+                {waitlistItems.map((item) => (
+                  <div 
+                    key={item.id}
+                    className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-md"
+                  >
+                    <div>
+                      <p className="font-medium">{item.stationName}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        Position #{item.position} • {new Date(item.date).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigate('/notifications')}
+                    >
+                      Details
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+        </div>
+        
+        {/* Second and third columns - Map and Stations */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Recent Notifications */}
+          {notifications && notifications.length > 0 && (
+            <Card title="Recent Notifications">
+              <div className="space-y-2">
+                {notifications.slice(0, 3).map((notification) => (
+                  <div 
+                    key={notification.id}
+                    className={`p-3 rounded-md border-l-4 ${
+                      notification.read ? 'border-gray-300 bg-gray-50' : 'border-primary-500 bg-primary-50'
+                    } dark:bg-gray-800`}
+                  >
+                    <p className="font-medium">{notification.title}</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">{notification.message}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                      {new Date(notification.createdAt).toLocaleString()}
+                    </p>
+                  </div>
+                ))}
+                
+                <div className="text-center pt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigate('/notifications')}
+                  >
+                    View All Notifications
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          )}
+          
+          {/* Nearby Stations */}
+          <StationsList
+            stations={nearbyStations}
+            title="Nearby Charging Stations"
+            onSelectStation={(station) => navigate(`/stations?id=${station.id}`)}
+          />
+          
+          {/* Quick Actions */}
+          <Card title="Quick Actions">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <Button
+                variant="outline"
+                className="flex items-center justify-center gap-2"
+                onClick={() => navigate('/stations')}
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                </svg>
+                Find Stations
+              </Button>
+              <Button
+                variant="outline"
+                className="flex items-center justify-center gap-2"
+                onClick={() => navigate('/history')}
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                View History
+              </Button>
+              <Button
+                variant="outline"
+                className="flex items-center justify-center gap-2"
+                onClick={() => navigate('/profile')}
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                Profile
+              </Button>
+            </div>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Dashboard;

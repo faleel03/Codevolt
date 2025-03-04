@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '../hooks/useauth';
 import { useBooking } from '../hooks/useBooking';
 import { useNotification } from '../hooks/useNotification';
 import { useStations } from '../hooks/useStations';
@@ -17,12 +17,46 @@ import Notification from '../components/common/Notification';
 const Dashboard = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  // Add sample stations directly in the component
+  const [sampleStations] = useState([
+    {
+      id: 'station-1',
+      name: 'Downtown Charging Hub',
+      address: '123 Main St, City Center',
+      availableSlots: 3,
+      totalSlots: 10,
+      chargingTypes: ['L2', 'L3'],
+      distance: 1.2,
+      rating: 4.5
+    },
+    {
+      id: 'station-2',
+      name: 'Westside EV Station',
+      address: '456 Park Ave, West District',
+      availableSlots: 5,
+      totalSlots: 8,
+      chargingTypes: ['L2'],
+      distance: 2.5,
+      rating: 4.2
+    },
+    {
+      id: 'station-3',
+      name: 'Eastside Rapid Chargers',
+      address: '789 Electric Blvd, East End',
+      availableSlots: 1,
+      totalSlots: 6,
+      chargingTypes: ['L3'],
+      distance: 3.7,
+      rating: 4.8
+    }
+  ]);
   const { stations, loading: stationsLoading } = useStations();
-  const { userBookings, waitlistItems, fetchStations, getUserBookings, getUserWaitlist, loading: bookingLoading } = useBooking();
+  const { userBookings, waitlistItems, fetchUserBookings, loading: bookingLoading } = useBooking();
   const { notifications, fetchNotifications, loading: notificationsLoading } = useNotification();
   
   const [error, setError] = useState(null);
   const [upcomingReservation, setUpcomingReservation] = useState(null);
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
   
   // Mock vehicle state - in a real app, this would come from an API or IoT device
   const [vehicleState, setVehicleState] = useState({
@@ -37,19 +71,34 @@ const Dashboard = () => {
       try {
         // Fetch all necessary data
         await Promise.all([
-          fetchStations(),
-          getUserBookings(),
-          getUserWaitlist(),
+          fetchUserBookings(),
           fetchNotifications()
         ]);
+        setIsDataLoaded(true);
       } catch (err) {
         setError('Failed to load dashboard data. Please try again.');
         console.error('Dashboard data loading error:', err);
+        setIsDataLoaded(true); // Set to true even on error to prevent infinite loading
       }
     };
     
     fetchData();
-  }, [fetchStations, getUserBookings, getUserWaitlist, fetchNotifications]);
+  }, [fetchUserBookings, fetchNotifications]);
+  
+  // Handle reservation cancellation
+  const handleCancelReservation = (reservationId) => {
+    const { cancelBooking } = useBooking();
+    if (cancelBooking) {
+      cancelBooking(reservationId)
+        .then(() => {
+          setUpcomingReservation(null);
+        })
+        .catch(err => {
+          console.error('Error canceling reservation:', err);
+          setError('Failed to cancel reservation. Please try again.');
+        });
+    }
+  };
   
   // Find the next upcoming reservation
   useEffect(() => {
@@ -83,16 +132,18 @@ const Dashboard = () => {
     setUpcomingReservation(upcoming.length > 0 ? upcoming[0] : null);
   }, [userBookings]);
   
-  // Filter to get only nearby stations for the dashboard
-  const nearbyStations = stations.slice(0, 3); // Just for demo, in reality would filter by distance
+  // Use sample stations instead of stations from useStations
+  const nearbyStations = sampleStations.slice(0, 3);
   
-  // Handle reservation cancellation
-  const handleCancelReservation = (reservationId) => {
-    setUpcomingReservation(null);
+  // Handle Find Stations button click without relying on fetchStations
+  const handleFindStations = () => {
+    // Store sample stations in sessionStorage for use in StationLocator
+    sessionStorage.setItem('sampleStations', JSON.stringify(sampleStations));
+    navigate('/stations');
   };
   
   // Loading state
-  const isLoading = stationsLoading || bookingLoading || notificationsLoading;
+  const isLoading = (stationsLoading || bookingLoading || notificationsLoading) && !isDataLoaded;
   
   if (isLoading) {
     return (
@@ -194,9 +245,9 @@ const Dashboard = () => {
           {notifications && notifications.length > 0 && (
             <Card title="Recent Notifications">
               <div className="space-y-2">
-                {notifications.slice(0, 3).map((notification) => (
+                {notifications.slice(0, 3).map((notification, index) => (
                   <div 
-                    key={notification.id}
+                    key={`${notification.id}-${index}`}
                     className={`p-3 rounded-md border-l-4 ${
                       notification.read ? 'border-gray-300 bg-gray-50' : 'border-primary-500 bg-primary-50'
                     } dark:bg-gray-800`}
@@ -235,7 +286,7 @@ const Dashboard = () => {
               <Button
                 variant="outline"
                 className="flex items-center justify-center gap-2"
-                onClick={() => navigate('/stations')}
+                onClick={handleFindStations}
               >
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />

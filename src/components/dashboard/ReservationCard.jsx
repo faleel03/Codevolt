@@ -52,8 +52,9 @@ const ReservationCard = ({ reservation, onCancel }) => {
   const handleCancel = async () => {
     if (window.confirm('Are you sure you want to cancel this reservation?')) {
       try {
-        const result = await cancelBooking(reservation.id);
-        if (result.success && onCancel) {
+        // Modified to handle different return types from cancelBooking
+        await cancelBooking(reservation.id);
+        if (onCancel) {
           onCancel(reservation.id);
         }
       } catch (error) {

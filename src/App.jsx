@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { useAuth } from './hooks/useAuth';
+import { useAuth } from './hooks/useauth'; // Fixed casing to match actual file
 import { useTheme } from './hooks/useTheme';
 
 // Pages

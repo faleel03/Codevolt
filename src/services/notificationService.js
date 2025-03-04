@@ -1,13 +1,45 @@
 import api, { mockApiCall } from './api';
 
-// Mock notifications data
+// Mock notifications data with unique IDs
 const MOCK_NOTIFICATIONS = [
   {
-    id: 'notif-1',
+    id: 'notif-1001',
     type: 'slot_available',
     title: 'Slot Available',
     message: 'A charging slot is now available at Downtown Charging Hub for your requested time.',
     createdAt: '2025-03-03T09:30:00Z',
+    read: false
+  },
+  {
+    id: 'notif-1002',
+    type: 'booking_reminder',
+    title: 'Booking Reminder',
+    message: 'Your charging session is scheduled for tomorrow at 2:00 PM.',
+    createdAt: '2025-03-02T14:15:00Z',
+    read: true
+  },
+  {
+    id: 'notif-1003',
+    type: 'payment_success',
+    title: 'Payment Successful',
+    message: 'Your payment for the last charging session has been processed successfully.',
+    createdAt: '2025-03-01T18:45:00Z',
+    read: false
+  },
+  {
+    id: 'notif-1004',
+    type: 'system_update',
+    title: 'System Update',
+    message: 'Our app has been updated with new features. Check them out!',
+    createdAt: '2025-02-28T12:00:00Z',
+    read: true
+  },
+  {
+    id: 'notif-1005',
+    type: 'waitlist_update',
+    title: 'Waitlist Update',
+    message: 'You have moved up in the waitlist for Westside EV Station.',
+    createdAt: '2025-02-27T16:20:00Z',
     read: false
   }
 ];
